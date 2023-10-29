@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "tsc && vite build --base=/spelsylt9-rundel-space-game",
+    "preview": "vite preview --base=/spelsylt9-rundel-space-game"
   },
   "devDependencies": {
     "typescript": "^5.0.2",
