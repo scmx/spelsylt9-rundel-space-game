@@ -1,20 +1,26 @@
 import { Boundary } from "./boundary";
 import { DeltaUpdate } from "./delta";
+import { Entity } from "./types";
 import { entitiesAngle, entitiesCollideEh, entitiesDistance } from "./utils";
 import { View } from "./view";
 
 export class Enemy {
   static normalSpeed = 0.001;
+
   pos = { x: 0, y: 0 };
   free = true;
   speed = Enemy.normalSpeed;
   target = Boundary.placeholder.mid;
   radius = 0;
   boundary = Boundary.placeholder;
+  permeationTimer?: number;
+  permeationInterval = 2000;
 
-  start() {
+  start(target: Entity) {
     if (!this.free) return;
     this.free = false;
+    this.target = target;
+    delete this.permeationTimer;
     const angle = Math.random() * Math.PI * 2;
     const x = Math.cos(angle) * 3;
     const y = Math.sin(angle) * 3;
@@ -38,11 +44,22 @@ export class Enemy {
   }
 
   update(delta: DeltaUpdate) {
-    const angle = entitiesAngle(this, this.target);
+    if (!this.permeationTimer && entitiesCollideEh(this, this.boundary.inner)) {
+      this.permeationTimer = 1;
+      return;
+    }
 
-    if (entitiesCollideEh(this, this.boundary.inner)) return;
-    const innerDist = entitiesDistance(this, this.target) - 1;
-    const step = this.speed * delta.time * (innerDist ** (1 / 7) - 0.6);
+    const target = this.permeationTimer ? this.target : this.boundary.inner;
+
+    if (this.permeationTimer) {
+      if (this.permeationTimer < this.permeationInterval) {
+        this.permeationTimer += delta.time;
+        return;
+      }
+    }
+
+    const angle = entitiesAngle(this, target);
+    const step = this.speed * delta.time;
     this.pos.x += Math.cos(angle) * step;
     this.pos.y += Math.sin(angle) * step;
   }

@@ -121,7 +121,7 @@ export class Game {
 
   startLevel() {
     for (const enemy of this.enemies) {
-      enemy.start();
+      enemy.start(this.player);
     }
   }
 }
