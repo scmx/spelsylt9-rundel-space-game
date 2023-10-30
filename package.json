@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build --base=/spelsylt9-rundel-space-game",
+    "build-itch": "tsc && mkdir -p itch && DIST=itch/dist vite build --base=./ && cd itch/dist; zip ../dist.zip -r .",
+    "build": "tsc && DIST=docs vite build --base=/spelsylt9-rundel-space-game",
     "preview": "vite preview --base=/spelsylt9-rundel-space-game"
   },
   "devDependencies": {
