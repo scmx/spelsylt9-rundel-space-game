@@ -7,7 +7,7 @@
     "dev": "vite",
     "build-itch": "tsc && mkdir -p itch && DIST=itch/dist vite build --base=./ && cd itch/dist; zip ../dist.zip -r .",
     "build": "tsc && DIST=docs vite build --base=/spelsylt9-rundel-space-game",
-    "preview": "vite preview --base=/spelsylt9-rundel-space-game"
+    "preview": "DIST=docs vite preview --base=/spelsylt9-rundel-space-game"
   },
   "devDependencies": {
     "typescript": "^5.0.2",
