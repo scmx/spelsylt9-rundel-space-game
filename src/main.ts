@@ -20,8 +20,14 @@ function initialize() {
 
     delta.time = timeStamp - lastTime;
     lastTime = timeStamp;
-    delta.shooting = keys.has("Space") || pointers.size > 1;
-    game.player.target = view.pointersToTarget([...pointers.values()]);
+    const pointersArray = [...pointers.values()];
+    delta.shooting =
+      keys.has("Space") ||
+      pointers.size > 1 ||
+      (pointers.size === 1 &&
+        pointersArray[0].pressure > 0.3 &&
+        !("ontouchstart" in window));
+    game.player.target = view.pointersToTarget(pointersArray);
 
     game.update(delta);
 

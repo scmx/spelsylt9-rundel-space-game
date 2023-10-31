@@ -13,6 +13,7 @@ export class Enemy {
   speed = Enemy.normalSpeed;
   target = Boundary.placeholder.mid;
   radius = 0;
+  damage = 0;
   boundary = Boundary.placeholder;
   permeationTimer?: number;
   permeationInterval = Enemy.defaultPermeationInterval;
@@ -31,6 +32,7 @@ export class Enemy {
     this.speed = Math.random() * 0.001 - 0.0005 + Enemy.normalSpeed;
     this.pos.x = x;
     this.pos.y = y;
+    this.damage = 0;
   }
 
   draw(view: View) {
@@ -62,7 +64,10 @@ export class Enemy {
     }
 
     const angle = entitiesAngle(this, target);
-    const step = this.speed * delta.time;
+    const step =
+      this.radius > this.boundary.inner.radius
+        ? this.speed * delta.time
+        : (this.speed / 2) * delta.time;
     this.pos.x += Math.cos(angle) * step;
     this.pos.y += Math.sin(angle) * step;
   }

@@ -14,7 +14,7 @@ export class Player implements Entity {
   speed = 0.0003;
   energy = 0;
   supernovaTimer?: number;
-  supernovaInterval: 2000;
+  supernovaInterval = 2000;
   hasInteracted = false;
   pos = { x: 0, y: 0 };
 
@@ -37,14 +37,14 @@ export class Player implements Entity {
     view.ctx.beginPath();
     view.ctx.arc(x, y, radius, 0, Math.PI * 2);
     view.ctx.closePath();
-    view.ctx.fillStyle = this.supernovaTimer
-      ? "white"
-      : this.shooting
-      ? "red"
-      : "orange";
+    view.ctx.fillStyle =
+      this.shooting && this.radius < this.boundary.inner.radius
+        ? "red"
+        : "orange";
     view.ctx.fill();
 
     if (!this.target) return;
+    if (this.radius > this.boundary.inner.radius) return;
 
     const angle = entitiesAngle(this, this.target);
     const distance = entitiesDistance(this, this.target);
@@ -67,13 +67,18 @@ export class Player implements Entity {
   }
 
   update(delta: DeltaUpdate) {
-    this.shooting = delta.shooting;
-    if (this.shooting) this.hasInteracted = true;
+    if (this.radius > this.boundary.inner.radius && this.energy < 0)
+      this.energy = 0.1;
+    this.updateRadius(delta);
     if (this.supernovaTimer) {
       this.supernovaTimer += delta.time;
       if (this.supernovaTimer < this.supernovaInterval) return;
-      if (!this.hasInteracted) return;
+    }
+    this.shooting = delta.shooting;
+    if (this.shooting) this.hasInteracted = true;
+    if (this.supernovaTimer && this.hasInteracted) {
       this.start();
+      return;
     }
     this.updatePosition(delta);
   }
@@ -96,19 +101,36 @@ export class Player implements Entity {
     this.pos.y = Math.sin(angle) * threshold;
   }
 
+  updateRadius(delta: DeltaUpdate) {
+    if (this.radius > this.boundary.outer.radius) return;
+    this.radius = Math.max(
+      Player.defaultRadius,
+      this.radius + this.energy * delta.time * 0.0001,
+    );
+    if (this.radius < this.boundary.nova.radius) return;
+    this.supernovaTimer = 1;
+    this.hasInteracted = false;
+  }
+
   get targetAngle() {
     return this.target ? entitiesAngle(this, this.target) : 0;
   }
 
   drainEnergy(entity: Entity) {
     if (this.supernovaTimer) return;
-    this.energy += 1;
-    const area1 = this.radius ** 2 * Math.PI;
-    const area2 = entity.radius ** 2 * Math.PI;
-    const area3 = area1 + area2;
-    this.radius += Math.sqrt(area3 ** (this.energy ** (1 / 2)) / Math.PI);
-    if (this.radius < 3) return;
-    this.supernovaTimer = 1;
-    this.hasInteracted = false;
+    this.energy = Math.min(1, this.energy + entity.radius);
+  }
+
+  releaseEnergy(entity: Entity) {
+    if (this.supernovaTimer) return;
+    this.energy = Math.max(-1, this.energy - entity.radius);
+  }
+
+  shootAngles() {
+    return [
+      this.targetAngle,
+      (this.targetAngle - Math.PI / 4) % (Math.PI * 2),
+      (this.targetAngle - Math.PI / 4) % (Math.PI * 2),
+    ];
   }
 }

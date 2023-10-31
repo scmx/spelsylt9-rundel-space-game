@@ -5,11 +5,8 @@ import { Level } from "./level";
 import { Player } from "./player";
 import { Pool } from "./pool";
 import { Projectile } from "./projectile";
-import { Position } from "./types";
-import { entitiesCollideEh } from "./utils";
+import { entitiesCollideEh, teleportOutside } from "./utils";
 import { View } from "./view";
-
-const origin: Position = { x: 0, y: 0 };
 
 export class Game {
   boundary = new Boundary();
@@ -42,9 +39,10 @@ export class Game {
     this.drawOuter(view);
     this.drawInner(view);
     this.drawEnemies(view);
-    this.player.draw(view);
     this.drawProjectiles(view);
-    if (this.player.supernovaTimer) this.drawSupernova(view);
+    this.player.draw(view);
+    if (this.player.radius >= this.boundary.inner.radius)
+      this.drawSupernova(view);
   }
 
   drawOuter(view: View) {
@@ -83,6 +81,7 @@ export class Game {
       view.half.width,
       view.half.height,
     );
+    if (this.player.radius < this.boundary.nova.radius) return;
     view.ctx.fillText(
       "Continue [Space]",
       view.half.width,
@@ -93,13 +92,21 @@ export class Game {
   update(delta: DeltaUpdate) {
     this.updateProjectiles(delta);
     this.updateEnemies(delta);
-    this.player.update(delta);
+    this.updatePlayer(delta);
   }
 
   updateEnemies(delta: DeltaUpdate) {
     this.enemies.updatePoolTimer(delta);
     for (const enemy of this.enemies) {
-      if (enemy.free) continue;
+      if (enemy.free) {
+        if (
+          this.player.radius > this.boundary.inner.radius &&
+          this.player.radius < this.boundary.outer.radius
+        ) {
+          enemy.start(this.player);
+        }
+        continue;
+      }
       enemy.update(delta);
 
       if (entitiesCollideEh(this.player, enemy)) {
@@ -116,12 +123,18 @@ export class Game {
       projectile.update(delta);
       for (const enemy of this.enemies) {
         if (!enemy.free && entitiesCollideEh(enemy, projectile)) {
+          enemy.damage += 0.001;
+          if (this.player.energy < 0) this.player.energy = 0;
+          if (enemy.damage < enemy.radius) continue;
           enemy.free = true;
+          this.player.releaseEnergy(enemy);
+          this.player.energy = Math.max(0, this.player.energy - enemy.radius);
         }
       }
     }
     if (this.enemies.idle) {
       this.levelIndex = (this.levelIndex + 1) % this.levels.length;
+      this.player.energy = -0.2;
       localStorage.setItem(
         "rundel-space-game",
         JSON.stringify({ levelIndex: this.levelIndex }),
@@ -129,30 +142,26 @@ export class Game {
       this.startLevel();
     }
     if (!this.player.target || !delta.shooting) return;
-    this.projectiles
-      .getFree()
-      ?.start(
-        this.player.pos,
-        Projectile.normalRadius,
-        this.player.targetAngle,
-        this.boundary,
-      );
-    this.projectiles
-      .getFree()
-      ?.start(
-        this.player.pos,
-        Projectile.normalRadius,
-        ((this.player.targetAngle - Math.PI / 4) % Math.PI) * 25,
-        this.boundary,
-      );
-    this.projectiles
-      .getFree()
-      ?.start(
-        this.player.pos,
-        Projectile.normalRadius,
-        ((this.player.targetAngle + Math.PI / 4) % Math.PI) * 2,
-        this.boundary,
-      );
+    if (this.player.radius > this.boundary.inner.radius) return;
+    for (const angle of this.player.shootAngles()) {
+      const projectile = this.projectiles.getFree();
+      if (!projectile) break;
+      const pos = teleportOutside(this.player, angle);
+      projectile.start(pos, Projectile.normalRadius, angle, this.boundary);
+    }
+  }
+
+  updatePlayer(delta: DeltaUpdate) {
+    this.player.update(delta);
+    if (this.player.supernovaTimer) {
+      if (this.player.supernovaTimer > this.player.supernovaInterval) {
+        if (this.player.hasInteracted) {
+          if (this.player.radius >= this.boundary.outer.radius) {
+            this.player.start();
+          }
+        }
+      }
+    }
   }
 
   get level() {
