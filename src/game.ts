@@ -33,7 +33,8 @@ export class Game {
       }
     }
     console.log(this.boundary);
-    this.player = new Player(origin, this.boundary);
+    this.player = new Player(this.boundary);
+    this.player.start();
     this.startLevel();
   }
 
@@ -43,6 +44,7 @@ export class Game {
     this.drawEnemies(view);
     this.player.draw(view);
     this.drawProjectiles(view);
+    if (this.player.supernovaTimer) this.drawSupernova(view);
   }
 
   drawOuter(view: View) {
@@ -71,6 +73,23 @@ export class Game {
     }
   }
 
+  drawSupernova(view: View) {
+    const fontSize = Math.max(24, Math.min(96, (24 * view.scale) / 500));
+    view.ctx.font = `small-caps bold ${fontSize}px serif`;
+    view.ctx.fillStyle = "black";
+    view.ctx.textAlign = "center";
+    view.ctx.fillText(
+      "You went supernova! A new star will be formed for you.",
+      view.half.width,
+      view.half.height,
+    );
+    view.ctx.fillText(
+      "Continue [Space]",
+      view.half.width,
+      view.half.height * 1.2,
+    );
+  }
+
   update(delta: DeltaUpdate) {
     this.updateProjectiles(delta);
     this.updateEnemies(delta);
@@ -82,6 +101,11 @@ export class Game {
     for (const enemy of this.enemies) {
       if (enemy.free) continue;
       enemy.update(delta);
+
+      if (entitiesCollideEh(this.player, enemy)) {
+        this.player.drainEnergy(enemy);
+        enemy.free = true;
+      }
     }
   }
 
@@ -111,6 +135,22 @@ export class Game {
         this.player.pos,
         Projectile.normalRadius,
         this.player.targetAngle,
+        this.boundary,
+      );
+    this.projectiles
+      .getFree()
+      ?.start(
+        this.player.pos,
+        Projectile.normalRadius,
+        ((this.player.targetAngle - Math.PI / 4) % Math.PI) * 25,
+        this.boundary,
+      );
+    this.projectiles
+      .getFree()
+      ?.start(
+        this.player.pos,
+        Projectile.normalRadius,
+        ((this.player.targetAngle + Math.PI / 4) % Math.PI) * 2,
         this.boundary,
       );
   }

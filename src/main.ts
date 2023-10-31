@@ -9,6 +9,7 @@ function initialize() {
   const game = new Game();
   const view = new View(ctx, game);
   console.log(game);
+  console.log(view);
   const delta = new DeltaUpdate();
   const pointers = new Map<number, Pointer>();
   const keys = new Set<string>();

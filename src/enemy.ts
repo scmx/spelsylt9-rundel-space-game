@@ -6,6 +6,7 @@ import { View } from "./view";
 
 export class Enemy {
   static normalSpeed = 0.001;
+  static defaultPermeationInterval = 2000;
 
   pos = { x: 0, y: 0 };
   free = true;
@@ -14,13 +15,15 @@ export class Enemy {
   radius = 0;
   boundary = Boundary.placeholder;
   permeationTimer?: number;
-  permeationInterval = 2000;
+  permeationInterval = Enemy.defaultPermeationInterval;
 
   start(target: Entity) {
     if (!this.free) return;
     this.free = false;
     this.target = target;
     delete this.permeationTimer;
+    this.permeationInterval =
+      Enemy.defaultPermeationInterval * (1 + Math.random());
     const angle = Math.random() * Math.PI * 2;
     const x = Math.cos(angle) * 3;
     const y = Math.sin(angle) * 3;
