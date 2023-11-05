@@ -5,27 +5,29 @@ import { entitiesAngle, entitiesCollideEh, entitiesDistance } from "./utils";
 import { View } from "./view";
 
 export class Player implements Entity {
-  static defaultRadius = 0.02;
+  static defaultRadius = 0.1;
   static defaultSpeed = 0.0003;
+  static defaultEnergy = 0;
 
   radius = Player.defaultRadius;
+  speed = Player.defaultSpeed;
+  energy = Player.defaultEnergy;
   shooting = false;
   target?: Entity;
-  speed = 0.0003;
-  energy = 0;
   supernovaTimer?: number;
-  supernovaInterval = 2000;
+  supernovaInterval = 1000;
   hasInteracted = false;
   pos = { x: 0, y: 0 };
+  kills = 0;
 
   constructor(public boundary: Boundary) {}
 
   start() {
     this.radius = Player.defaultRadius;
+    this.speed = Player.defaultSpeed;
+    this.energy = Player.defaultEnergy;
     this.shooting = false;
     delete this.target;
-    this.speed = Player.defaultSpeed;
-    this.energy = 0;
     delete this.supernovaTimer;
     this.hasInteracted = false;
     this.pos.x = this.boundary.mid.pos.x;
@@ -76,10 +78,6 @@ export class Player implements Entity {
     }
     this.shooting = delta.shooting;
     if (this.shooting) this.hasInteracted = true;
-    if (this.supernovaTimer && this.hasInteracted) {
-      this.start();
-      return;
-    }
     this.updatePosition(delta);
   }
 
@@ -105,9 +103,9 @@ export class Player implements Entity {
     if (this.radius > this.boundary.outer.radius) return;
     this.radius = Math.max(
       Player.defaultRadius,
-      this.radius + this.energy * delta.time * 0.0001,
+      this.radius + this.energy * delta.time * 0.00001,
     );
-    if (this.radius < this.boundary.nova.radius) return;
+    if (this.radius < this.boundary.inner.radius) return;
     this.supernovaTimer = 1;
     this.hasInteracted = false;
   }
@@ -118,7 +116,7 @@ export class Player implements Entity {
 
   drainEnergy(entity: Entity) {
     if (this.supernovaTimer) return;
-    this.energy = Math.min(1, this.energy + entity.radius);
+    this.energy = Math.min(1, this.energy + entity.radius * 3);
   }
 
   releaseEnergy(entity: Entity) {
@@ -126,11 +124,13 @@ export class Player implements Entity {
     this.energy = Math.max(-1, this.energy - entity.radius);
   }
 
-  shootAngles() {
-    return [
-      this.targetAngle,
-      (this.targetAngle - Math.PI / 4) % (Math.PI * 2),
-      (this.targetAngle - Math.PI / 4) % (Math.PI * 2),
-    ];
+  shootAngles(count: number) {
+    const angles = [this.targetAngle];
+    const step = Math.PI / 20;
+    for (let i = 1; i < count; i++) {
+      angles.push((this.targetAngle - step * i) % (Math.PI * 2));
+      angles.push((this.targetAngle + step * i) % (Math.PI * 2));
+    }
+    return angles;
   }
 }

@@ -75,6 +75,10 @@ function initialize() {
     keys.clear();
   });
 
+  addEventListener("focus", () => {
+    view.resize();
+  });
+
   // Viewport change
   addEventListener("resize", () => {
     view.resize();

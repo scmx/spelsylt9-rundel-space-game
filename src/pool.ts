@@ -26,23 +26,47 @@ export class Pool<T extends Poolable> {
     return this.items.every((item) => item.free);
   }
 
+  get used() {
+    let count = 0;
+    for (let i = 0; i < this.items.length; i++) {
+      if (!this.items[i].free) count++;
+    }
+    return count;
+  }
+
   [Symbol.iterator]() {
     return this.items.values();
   }
 
-  getFree() {
-    if (this.interval && this.timer < this.interval) return;
+  getFree(count = 1) {
+    if (this.interval && this.timer < this.interval) return [];
     this.timer = 0;
-    return this.getFreeImmediate();
+    return this.getFreeImmediate(count);
   }
 
-  getFreeImmediate() {
+  getFreeImmediate(count = 1) {
+    const results: T[] = [];
     for (let i = 0; i < this.items.length; i++) {
-      if (this.items[i].free) return this.items[i];
+      if (!this.items[i].free) continue;
+      results.push(this.items[i]);
+      if (results.length >= count) break;
     }
+    return results;
   }
 
   updatePoolTimer(delta: DeltaUpdate) {
     if (this.interval) this.timer += delta.time;
+  }
+
+  updateSize(size: number) {
+    this.size = size;
+    while (this.items.length < this.size) {
+      const item = new this.Klass();
+      if (this.autoFill) item.start();
+      this.items.push(item);
+    }
+    while (this.items.length > this.size) {
+      this.items.pop();
+    }
   }
 }

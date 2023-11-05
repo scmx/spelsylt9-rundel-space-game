@@ -8,6 +8,7 @@ export class View {
   full = { width: 0, height: 0 };
   half = { width: 0, height: 0 };
   inner = { radius: 0, left: 0, top: 0 };
+  fontSize = 0;
 
   constructor(
     public ctx: CanvasRenderingContext2D,
@@ -43,6 +44,8 @@ export class View {
 
     this.left = w / 2;
     this.top = h / 2;
+
+    this.fontSize = Math.max(24, Math.min(96, (24 * this.scale) / 500));
   }
 
   resolve(entity: Entity) {

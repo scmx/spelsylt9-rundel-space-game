@@ -50,6 +50,9 @@ export class Enemy {
 
   update(delta: DeltaUpdate) {
     if (!this.permeationTimer && entitiesCollideEh(this, this.boundary.inner)) {
+      const angle = entitiesAngle(this.boundary.mid, this);
+      this.pos.x = Math.cos(angle) * (this.boundary.inner.radius + this.radius);
+      this.pos.y = Math.sin(angle) * (this.boundary.inner.radius + this.radius);
       this.permeationTimer = 1;
       return;
     }
@@ -63,11 +66,17 @@ export class Enemy {
       }
     }
 
-    const angle = entitiesAngle(this, target);
+    let angle = entitiesAngle(this, target);
+    if (this.permeationTimer) {
+      angle += Math.PI / 4;
+    }
+
+    const midDist = entitiesDistance(this, this.boundary.mid);
+    const speedModifier = this.boundary.outer.radius - midDist;
     const step =
-      this.radius > this.boundary.inner.radius
+      midDist > this.boundary.inner.radius
         ? this.speed * delta.time
-        : (this.speed / 2) * delta.time;
+        : (this.speed / 4) * speedModifier * delta.time;
     this.pos.x += Math.cos(angle) * step;
     this.pos.y += Math.sin(angle) * step;
   }

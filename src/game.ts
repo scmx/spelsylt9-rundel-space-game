@@ -5,6 +5,7 @@ import { Level } from "./level";
 import { Player } from "./player";
 import { Pool } from "./pool";
 import { Projectile } from "./projectile";
+import { Position } from "./types";
 import { entitiesCollideEh, teleportOutside } from "./utils";
 import { View } from "./view";
 
@@ -13,12 +14,13 @@ export class Game {
   levels = Level.initArray();
   player: Player;
   enemies: Pool<Enemy>;
-  projectiles = new Pool(40, Projectile, 100);
+  projectiles = new Pool(120, Projectile, 50);
   private levelIndex = 0;
+  waveSize: number;
 
   constructor() {
-    const waveSize = new URLSearchParams(location.search).has("easy") ? 4 : 40;
-    this.enemies = new Pool(waveSize, Enemy, 100);
+    this.waveSize = new URLSearchParams(location.search).has("easy") ? 4 : 40;
+    this.enemies = new Pool(this.waveSize, Enemy, 100);
     let json: any;
     try {
       const raw = localStorage.getItem("rundel-space-game");
@@ -43,6 +45,7 @@ export class Game {
     this.player.draw(view);
     if (this.player.radius >= this.boundary.inner.radius)
       this.drawSupernova(view);
+    this.drawStats(view);
   }
 
   drawOuter(view: View) {
@@ -72,21 +75,35 @@ export class Game {
   }
 
   drawSupernova(view: View) {
-    const fontSize = Math.max(24, Math.min(96, (24 * view.scale) / 500));
-    view.ctx.font = `small-caps bold ${fontSize}px serif`;
-    view.ctx.fillStyle = "black";
+    view.ctx.font = `small-caps bold ${view.fontSize * 2}px sans-serif`;
+    view.ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
     view.ctx.textAlign = "center";
-    view.ctx.fillText(
-      "You went supernova! A new star will be formed for you.",
-      view.half.width,
-      view.half.height,
-    );
-    if (this.player.radius < this.boundary.nova.radius) return;
-    view.ctx.fillText(
-      "Continue [Space]",
-      view.half.width,
-      view.half.height * 1.2,
-    );
+    const x = view.half.width;
+    let y = view.half.height;
+    view.ctx.fillText("YOU WENT SUPERNOVA!", x, y);
+    y += view.fontSize * 2.5;
+    view.ctx.fillText("GAME OVER", x, y);
+    y += view.fontSize * 2.5;
+    if (!this.player.supernovaTimer) return;
+    if (this.player.supernovaTimer < this.player.supernovaInterval) return;
+    view.ctx.fillText("SPAWN A NEW STAR [Space]", x, y);
+  }
+
+  drawStats(view: View) {
+    view.ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    view.ctx.textBaseline = "top";
+    view.ctx.textAlign = "left";
+    view.ctx.font = `small-caps bold ${view.fontSize}px sans-serif`;
+    const x = view.fontSize * 0.5;
+    let y = view.fontSize * 0.5;
+    view.ctx.fillText(`${this.deathFormatted}`, x, y);
+    y += view.fontSize * 1.2;
+    view.ctx.fillText(`LEVEL ${this.levelIndex}`, x, y);
+    if (this.player.supernovaTimer) return;
+    y += view.fontSize * 1.2;
+    view.ctx.fillText(`TARGETS ${this.enemies.used}`, x, y);
+    y += view.fontSize * 1.2;
+    view.ctx.fillText(`HITS ${this.player.kills}`, x, y);
   }
 
   update(delta: DeltaUpdate) {
@@ -111,6 +128,7 @@ export class Game {
 
       if (entitiesCollideEh(this.player, enemy)) {
         this.player.drainEnergy(enemy);
+        this.player.kills++;
         enemy.free = true;
       }
     }
@@ -123,18 +141,15 @@ export class Game {
       projectile.update(delta);
       for (const enemy of this.enemies) {
         if (!enemy.free && entitiesCollideEh(enemy, projectile)) {
-          enemy.damage += 0.001;
+          enemy.damage += 0.0005;
           if (this.player.energy < 0) this.player.energy = 0;
           if (enemy.damage < enemy.radius) continue;
           enemy.free = true;
-          this.player.releaseEnergy(enemy);
-          this.player.energy = Math.max(0, this.player.energy - enemy.radius);
         }
       }
     }
     if (this.enemies.idle) {
       this.levelIndex = (this.levelIndex + 1) % this.levels.length;
-      this.player.energy = -0.2;
       localStorage.setItem(
         "rundel-space-game",
         JSON.stringify({ levelIndex: this.levelIndex }),
@@ -143,10 +158,17 @@ export class Game {
     }
     if (!this.player.target || !delta.shooting) return;
     if (this.player.radius > this.boundary.inner.radius) return;
-    for (const angle of this.player.shootAngles()) {
-      const projectile = this.projectiles.getFree();
+    const angles = this.player.shootAngles(5);
+    const projs: Projectile[] = [];
+    const poss: Position[] = [];
+    const free = this.projectiles.getFree(5);
+    for (let i = 0; i < free.length; i++) {
+      const projectile = free[i];
       if (!projectile) break;
+      projs.push(projectile);
+      const angle = angles[i];
       const pos = teleportOutside(this.player, angle);
+      poss.push(pos);
       projectile.start(pos, Projectile.normalRadius, angle, this.boundary);
     }
   }
@@ -156,7 +178,7 @@ export class Game {
     if (this.player.supernovaTimer) {
       if (this.player.supernovaTimer > this.player.supernovaInterval) {
         if (this.player.hasInteracted) {
-          if (this.player.radius >= this.boundary.outer.radius) {
+          if (this.player.radius >= this.boundary.nova.radius) {
             this.player.start();
           }
         }
@@ -169,8 +191,30 @@ export class Game {
   }
 
   startLevel() {
+    this.enemies.updateSize(this.waveSize * (this.levelIndex + 1));
     for (const enemy of this.enemies) {
       enemy.start(this.player);
     }
+  }
+
+  get death() {
+    return 500000 / (this.player.radius / this.boundary.inner.radius);
+  }
+
+  get deathFormatted() {
+    const formats = [
+      { value: 1e12, symbol: "TRILLION" },
+      { value: 1e9, symbol: "BILLION" },
+      { value: 1e6, symbol: "MILLION" },
+    ];
+    const death = this.death;
+    for (const format of formats) {
+      if (death >= format.value) {
+        return `${Math.floor(death / format.value).toLocaleString()} ${
+          format.symbol
+        } YEARS LEFT`;
+      }
+    }
+    return `${Math.floor(death).toLocaleString()} YEARS LEFT`;
   }
 }
